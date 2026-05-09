@@ -1,8 +1,13 @@
-from flask import Flask, render_template, Response
+from flask import Flask
+from flask import render_template
+from flask import Response
+from flask import request
 
 import face_recognition
 import cv2
 import os
+import shutil
+import sqlite3
 import numpy as np
 import pandas as pd
 
@@ -11,7 +16,10 @@ from datetime import datetime
 from gtts import gTTS
 from playsound import playsound
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
+from unidecode import unidecode
 
 # =========================
 # FLASK
@@ -218,9 +226,43 @@ def generate_frames():
                 )
             )
 
-            best_match_index = np.argmin(
-                face_distances
-            )
+            name = "Unknown"
+
+if len(known_face_encodings) > 0:
+
+    matches = (
+        face_recognition.compare_faces(
+            known_face_encodings,
+            face_encoding
+        )
+    )
+
+    face_distances = (
+        face_recognition.face_distance(
+            known_face_encodings,
+            face_encoding
+        )
+    )
+
+    best_match_index = np.argmin(
+        face_distances
+    )
+
+    if matches[best_match_index]:
+
+        folder_name = known_face_names[
+            best_match_index
+        ]
+
+        if folder_name in name_mapping:
+
+            name = name_mapping[
+                folder_name
+            ]
+
+        else:
+
+            name = folder_name
 
             if matches[best_match_index]:
 
@@ -263,7 +305,35 @@ def generate_frames():
                         attendance_file,
                         index=False
                     )
+                    conn = sqlite3.connect(
+                        'attendance.db'
+                    )
 
+                    cursor = conn.cursor()
+
+                    cursor.execute("""
+
+                    INSERT INTO attendance(
+
+                        student_name,
+                        attendance_time,
+                        attendance_date
+
+                    )
+
+                    VALUES(?,?,?)
+
+                    """, (
+
+                        name,
+                        current_time,
+                        today_date
+
+                    ))
+
+                    conn.commit()
+
+                    conn.close()
                     print(
                         f"{name} điểm danh thành công"
                     )
@@ -271,10 +341,6 @@ def generate_frames():
                     speak_vietnamese(
                         f"{name} điểm danh thành công"
                     )
-
-                # =========================
-                # ĐÃ ĐIỂM DANH
-                # =========================
 
                 else:
 
@@ -310,6 +376,10 @@ def generate_frames():
                 (0, 255, 0),
                 cv2.FILLED
             )
+
+            # =========================
+            # TEXT TIẾNG VIỆT
+            # =========================
 
             pil_image = Image.fromarray(
                 cv2.cvtColor(
@@ -356,7 +426,18 @@ def generate_frames():
 @app.route('/')
 
 def index():
-    return render_template('index.html')
+
+    return dashboard()
+
+@app.route('/attendance')
+
+def attendance():
+
+    return render_template(
+        'attendance.html',
+        attendance_list=attendance_list,
+        total=len(attendance_list)
+    )
 
 @app.route('/video_feed')
 
@@ -371,8 +452,286 @@ def video_feed():
     )
 
 # =========================
+# REGISTER STUDENT
+# =========================
+
+@app.route('/register', methods=['GET', 'POST'])
+
+def register():
+
+    message = ""
+
+    if request.method == 'POST':
+
+        student_name = request.form[
+            'student_name'
+        ]
+
+        # đổi tên folder
+        folder_name = (
+            unidecode(student_name)
+            .lower()
+            .replace(" ", "_")
+        )
+
+        save_path = os.path.join(
+            "dataset",
+            folder_name
+        )
+
+        os.makedirs(
+            save_path,
+            exist_ok=True
+        )
+
+        cap = video_capture
+
+        count = 0
+
+        while count < 20:
+
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+
+            rgb_frame = cv2.cvtColor(
+                frame,
+                cv2.COLOR_BGR2RGB
+            )
+
+            faces = (
+                face_recognition.face_locations(
+                    rgb_frame
+                )
+            )
+
+            for face in faces:
+
+                top, right, bottom, left = face
+
+                face_image = frame[
+                    top:bottom,
+                    left:right
+                ]
+
+                file_name = os.path.join(
+                    save_path,
+                    f"{count}.jpg"
+                )
+
+                cv2.imwrite(
+                    file_name,
+                    face_image
+                )
+
+                count += 1
+
+                cv2.rectangle(
+                    frame,
+                    (left, top),
+                    (right, bottom),
+                    (0,255,0),
+                    2
+                )
+
+                cv2.putText(
+                    frame,
+                    f"Image: {count}/20",
+                    (20,40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0,255,0),
+                    2
+                )
+
+            cv2.imshow(
+                "Register Face",
+                frame
+            )
+
+            if cv2.waitKey(1) == 27:
+                break
+
+        
+
+            cv2.destroyAllWindows()
+            conn = sqlite3.connect(
+                'attendance.db'
+            )
+
+            cursor = conn.cursor()
+
+            cursor.execute("""
+
+            INSERT INTO students(
+                name,
+                folder_name
+            )
+
+            VALUES(?,?)
+
+            """, (
+
+                student_name,
+                folder_name
+
+            ))
+
+            conn.commit()
+
+            conn.close()
+            
+            message = (
+                f"Đăng ký thành công "
+                f"cho {student_name}"
+            )
+
+    return render_template(
+        'register.html',
+        message=message
+    )
+
+# =========================
 # MAIN
 # =========================
+@app.route('/students')
+
+def students():
+
+    students_data = []
+
+    dataset_path = "dataset"
+
+    for folder in os.listdir(dataset_path):
+
+        folder_path = os.path.join(
+            dataset_path,
+            folder
+        )
+
+        if os.path.isdir(folder_path):
+
+            total_images = len(
+                os.listdir(folder_path)
+            )
+
+            display_name = (
+                folder
+                .replace("_", " ")
+                .title()
+            )
+
+            students_data.append({
+
+                "name": display_name,
+
+                "folder": folder,
+
+                "total_images":
+                    total_images
+
+            })
+
+    return render_template(
+        'students.html',
+        students=students_data
+    )
+
+@app.route('/dashboard')
+
+def dashboard():
+
+    conn = sqlite3.connect(
+        'attendance.db'
+    )
+
+    cursor = conn.cursor()
+
+    # =========================
+    # TOTAL STUDENTS
+    # =========================
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM students"
+    )
+
+    total_students = cursor.fetchone()[0]
+
+    # =========================
+    # TODAY ATTENDANCE
+    # =========================
+
+    today_date = datetime.now().strftime(
+        "%Y-%m-%d"
+    )
+
+    cursor.execute("""
+
+    SELECT COUNT(*)
+
+    FROM attendance
+
+    WHERE attendance_date=?
+
+    """, (today_date,))
+
+    today_attendance = (
+        cursor.fetchone()[0]
+    )
+
+    # =========================
+    # TOTAL DATASET
+    # =========================
+
+    dataset_path = "dataset"
+
+    total_dataset = len(
+        os.listdir(dataset_path)
+    )
+
+    # =========================
+    # RECENT ATTENDANCE
+    # =========================
+
+    cursor.execute("""
+
+    SELECT
+        student_name,
+        attendance_time,
+        attendance_date
+
+    FROM attendance
+
+    ORDER BY id DESC
+
+    LIMIT 10
+
+    """)
+
+    recent_attendance = (
+        cursor.fetchall()
+    )
+
+    conn.close()
+
+    return render_template(
+
+        'dashboard.html',
+
+        total_students=
+            total_students,
+
+        today_attendance=
+            today_attendance,
+
+        total_dataset=
+            total_dataset,
+
+        recent_attendance=
+            recent_attendance
+
+    )
 
 if __name__ == "__main__":
 

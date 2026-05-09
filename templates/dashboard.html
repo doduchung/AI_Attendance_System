@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Dashboard
+    </title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <style>
+
+        body{
+            background:#f5f5f5;
+        }
+
+        .sidebar{
+            height:100vh;
+            background:#198754;
+            color:white;
+            padding:20px;
+        }
+
+        .sidebar h2{
+            font-weight:bold;
+            margin-bottom:30px;
+        }
+
+        .menu-btn{
+            width:100%;
+            margin-bottom:15px;
+            text-align:left;
+        }
+
+        .main-content{
+            padding:20px;
+        }
+
+        .card-box{
+            border-radius:20px;
+            color:white;
+            padding:30px;
+        }
+
+        .big-number{
+            font-size:50px;
+            font-weight:bold;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+
+    <div class="row">
+
+        <!-- SIDEBAR -->
+
+        <div class="col-md-2 sidebar">
+
+            <h2>
+                AI Attendance
+            </h2>
+
+            <a
+                href="/dashboard"
+                class="btn btn-warning menu-btn"
+            >
+                Dashboard
+            </a>
+
+            <a
+                href="/attendance"
+                class="btn btn-light menu-btn"
+            >
+                Điểm Danh
+            </a>
+
+            <a
+                href="/register"
+                class="btn btn-light menu-btn"
+            >
+                Đăng Ký Học Sinh
+            </a>
+
+            <a
+                href="/students"
+                class="btn btn-light menu-btn"
+            >
+                Danh Sách Học Sinh
+            </a>
+
+        </div>
+
+        <!-- MAIN -->
+
+        <div class="col-md-10 main-content">
+
+            <h1 class="text-success mb-4">
+                Dashboard Hệ Thống
+            </h1>
+
+            <div class="row">
+
+                <!-- STUDENTS -->
+
+                <div class="col-md-4">
+
+                    <div
+                        class="card-box bg-success shadow"
+                    >
+
+                        <h3>
+                            Tổng Học Sinh
+                        </h3>
+
+                        <div class="big-number">
+                            {{ total_students }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- ATTEND TODAY -->
+
+                <div class="col-md-4">
+
+                    <div
+                        class="card-box bg-primary shadow"
+                    >
+
+                        <h3>
+                            Điểm Danh Hôm Nay
+                        </h3>
+
+                        <div class="big-number">
+                            {{ today_attendance }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- DATASET -->
+
+                <div class="col-md-4">
+
+                    <div
+                        class="card-box bg-dark shadow"
+                    >
+
+                        <h3>
+                            Tổng Dataset
+                        </h3>
+
+                        <div class="big-number">
+                            {{ total_dataset }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- TABLE -->
+
+            <div class="mt-5">
+
+                <div
+                    class="card shadow p-4"
+                >
+
+                    <h3 class="text-success mb-4">
+                        Điểm Danh Gần Đây
+                    </h3>
+
+                    <table
+                        class="table table-bordered"
+                    >
+
+                        <thead
+                            class="table-success"
+                        >
+
+                            <tr>
+
+                                <th>
+                                    STT
+                                </th>
+
+                                <th>
+                                    Họ Tên
+                                </th>
+
+                                <th>
+                                    Thời Gian
+                                </th>
+
+                                <th>
+                                    Ngày
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for row in recent_attendance %}
+
+                            <tr>
+
+                                <td>
+                                    {{ loop.index }}
+                                </td>
+
+                                <td>
+                                    {{ row[0] }}
+                                </td>
+
+                                <td>
+                                    {{ row[1] }}
+                                </td>
+
+                                <td>
+                                    {{ row[2] }}
+                                </td>
+
+                            </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

@@ -409,7 +409,7 @@ def generate_frames():
 
             cv2.rectangle(
                 frame,
-                (left, bottom - 40),
+                (left, bottom - 35),
                 (right, bottom),
                 (0, 255, 0),
                 cv2.FILLED
@@ -572,13 +572,21 @@ def register():
                 )
 
                 cv2.putText(
+
                     frame,
-                    f"Image: {count}/20",
-                    (20,40),
+
+                    student_name,
+
+                    (left + 6, bottom - 8),
+
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0,255,0),
+
+                    0.7,
+
+                    (255, 255, 255),
+
                     2
+
                 )
 
             cv2.imshow(
@@ -619,8 +627,7 @@ def register():
             conn.close()
             
             message = (
-                f"Đăng ký thành công "
-                f"cho {student_name}"
+                f"Đăng ký thành công  cho {student_name}"
             )
 
     return render_template(

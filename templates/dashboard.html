@@ -52,6 +52,31 @@
             font-size:50px;
             font-weight:bold;
         }
+        .export-btn{
+
+            background: green;
+
+            color: white;
+
+            border: none;
+
+            padding: 12px 20px;
+
+            border-radius: 10px;
+
+            font-size: 16px;
+
+            cursor: pointer;
+
+            margin-bottom: 20px;
+
+        }
+
+        .export-btn:hover{
+
+            background: darkgreen;
+
+        }
 
     </style>
 
@@ -75,7 +100,7 @@
                 href="/dashboard"
                 class="btn btn-warning menu-btn"
             >
-                Dashboard
+                Thống Kê
             </a>
 
             <a
@@ -106,7 +131,7 @@
         <div class="col-md-10 main-content">
 
             <h1 class="text-success mb-4">
-                Dashboard Hệ Thống
+                Thống Kê Hệ Thống
             </h1>
 
             <div class="row">
@@ -160,7 +185,7 @@
                     >
 
                         <h3>
-                            Tổng Dataset
+                            Tổng Data
                         </h3>
 
                         <div class="big-number">
@@ -184,6 +209,12 @@
                     <h3 class="text-success mb-4">
                         Điểm Danh Gần Đây
                     </h3>
+
+                    <a href="/export_excel">
+                        <button class="export-btn">
+                            Xuất Excel
+                        </button>
+                    </a>
 
                     <table
                         class="table table-bordered"

@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS students(
 
     name TEXT,
 
-    folder_name TEXT
+    folder_name TEXT,
+
+    real_name TEXT
 
 )
 

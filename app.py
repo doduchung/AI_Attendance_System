@@ -1,4 +1,7 @@
-from flask import Flask
+from flask import (
+    Flask,
+    send_file
+)
 from flask import render_template
 from flask import Response
 from flask import request
@@ -10,6 +13,8 @@ import shutil
 import sqlite3
 import numpy as np
 import pandas as pd
+import threading
+voice_lock = threading.Lock()
 
 from datetime import datetime
 
@@ -44,16 +49,27 @@ font = ImageFont.truetype(
 
 def speak_vietnamese(text):
 
-    tts = gTTS(
-        text=text,
-        lang='vi'
-    )
+    with voice_lock:
 
-    tts.save("voice.mp3")
+        try:
 
-    playsound("voice.mp3")
+            tts = gTTS(
+                text=text,
+                lang='vi'
+            )
 
-    os.remove("voice.mp3")
+            tts.save("voice.mp3")
+
+            playsound("voice.mp3")
+
+            os.remove("voice.mp3")
+
+        except Exception as e:
+
+            print(
+                "Voice Error:",
+                e
+            )
 
 # =========================
 # MAPPING TÊN THẬT
@@ -71,6 +87,8 @@ known_face_encodings = []
 known_face_names = []
 
 attendance_list = []
+already_announced = {}
+attendance_time_memory = {}
 
 dataset_path = "dataset"
 
@@ -142,6 +160,7 @@ attendance_file = (
 
 video_capture = cv2.VideoCapture(1)
 
+
 video_capture.set(
     cv2.CAP_PROP_FRAME_WIDTH,
     640
@@ -166,9 +185,9 @@ def generate_frames():
     global process_this_frame
     global face_locations
     global face_encodings
-
+    frame_count = 0
     while True:
-
+        frame_count += 1
         success, frame = video_capture.read()
 
         if not success:
@@ -177,8 +196,8 @@ def generate_frames():
         small_frame = cv2.resize(
             frame,
             (0, 0),
-            fx=0.20,
-            fy=0.20
+            fx=0.35,
+            fy=0.35
         )
 
         rgb_small_frame = cv2.cvtColor(
@@ -190,7 +209,11 @@ def generate_frames():
 
             face_locations = (
                 face_recognition.face_locations(
-                    rgb_small_frame
+                    
+                    rgb_small_frame,
+            
+                    model="hog"
+                    
                 )
             )
 
@@ -226,45 +249,21 @@ def generate_frames():
                 )
             )
 
-            name = "Unknown"
+            best_match_index = np.argmin(
+                face_distances
+            )
 
-if len(known_face_encodings) > 0:
+            if (
 
-    matches = (
-        face_recognition.compare_faces(
-            known_face_encodings,
-            face_encoding
-        )
-    )
+                matches[best_match_index]
 
-    face_distances = (
-        face_recognition.face_distance(
-            known_face_encodings,
-            face_encoding
-        )
-    )
+                and
 
-    best_match_index = np.argmin(
-        face_distances
-    )
+                face_distances[
+                    best_match_index
+                ] < 0.45
 
-    if matches[best_match_index]:
-
-        folder_name = known_face_names[
-            best_match_index
-        ]
-
-        if folder_name in name_mapping:
-
-            name = name_mapping[
-                folder_name
-            ]
-
-        else:
-
-            name = folder_name
-
-            if matches[best_match_index]:
+            ):
 
                 folder_name = known_face_names[
                     best_match_index
@@ -287,6 +286,9 @@ if len(known_face_encodings) > 0:
                 if name not in attendance_list:
 
                     attendance_list.append(name)
+                    attendance_time_memory[name] = (
+                        datetime.now().timestamp()
+                    )
 
                     current_time = (
                         datetime.now().strftime(
@@ -338,15 +340,51 @@ if len(known_face_encodings) > 0:
                         f"{name} điểm danh thành công"
                     )
 
-                    speak_vietnamese(
-                        f"{name} điểm danh thành công"
-                    )
+                    threading.Thread(
+
+                        target=speak_vietnamese,
+
+                        args=(
+                            f"{name} điểm danh thành công",
+                        )
+
+                    ).start()
 
                 else:
 
-                    print(
-                        f"{name} đã điểm danh rồi"
+                    current_timestamp = (
+                        datetime.now().timestamp()
                     )
+
+                    if (
+
+                        name not in already_announced
+
+                        or
+
+                        current_timestamp
+                        -
+                        already_announced[name] > 10
+
+                    ):
+
+                        print(
+                            f"{name} đã điểm danh rồi"
+                        )
+
+                        threading.Thread(
+
+                            target=speak_vietnamese,
+
+                            args=(
+                                f"{name} đã điểm danh rồi nhé",
+                            )
+
+                        ).start()
+
+                        already_announced[name] = (
+                            current_timestamp
+                        )
 
             # =========================
             # VẼ KHUNG MẶT
@@ -412,12 +450,10 @@ if len(known_face_encodings) > 0:
 
         frame = buffer.tobytes()
 
-        yield (
-            b'--frame\r\n'
-            b'Content-Type: image/jpeg\r\n\r\n'
-            + frame +
-            b'\r\n'
-        )
+        yield (b'--frame\r\n'
+              b'Content-Type: image/jpeg\r\n\r\n' +
+              frame +
+              b'\r\n')
 
 # =========================
 # ROUTES
@@ -732,7 +768,43 @@ def dashboard():
             recent_attendance
 
     )
+@app.route("/export_excel")
+def export_excel():
 
+    conn = sqlite3.connect(
+        'attendance.db'
+    )
+
+    query = """
+
+    SELECT *
+
+    FROM attendance
+
+    ORDER BY id DESC
+
+    """
+
+    df = pd.read_sql_query(
+        query,
+        conn
+    )
+
+    conn.close()
+
+    file_name = (
+        "recent_attendance.xlsx"
+    )
+
+    df.to_excel(
+        file_name,
+        index=False
+    )
+
+    return send_file(
+        file_name,
+        as_attachment=True
+    )
 if __name__ == "__main__":
 
     app.run(
